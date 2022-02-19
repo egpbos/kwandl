@@ -10,6 +10,10 @@ Welcome to kwandl's documentation!
   :maxdepth: 2
   :caption: Contents:
 
+  CONTRIBUTING.md
+  README.dev.md
+  CODE_OF_CONDUCT.md
+
 Indices and tables
 ==================
 

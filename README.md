@@ -43,7 +43,7 @@ Include a link to your project's full documentation here.
 ## Contributing
 
 If you want to contribute to the development of kwandl,
-have a look at the [contribution guidelines](CONTRIBUTING.md).
+have a look at the [contribution guidelines](https://kwandl.readthedocs.io/en/latest/CONTRIBUTING.html).
 
 ## Credits
 
