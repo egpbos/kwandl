@@ -26,3 +26,8 @@ def test_replace_kwargs_in_calls():
     result = function_1_and_2_kwandled(kwarg1=1, kwarg2=2)
     assert(result[0] == {'kwarg1': 1})
     assert(result[1] == {'kwarg2': 2})
+
+
+def test_replace_kwargs_in_calls_throw_TypeError_on_unexpected_kwarg():
+    with pytest.raises(TypeError, match=r"function_1_and_2_kwandled\(\) got an unexpected keyword argument 'nonexistent_kwarg'"):
+        function_1_and_2_kwandled(nonexistent_kwarg=1)
