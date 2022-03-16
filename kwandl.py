@@ -1,7 +1,7 @@
-import inspect
+import __future__
 import ast
 import functools
-import __future__
+import inspect
 
 
 def get_kwargs_applicable_to_function(function, kwargs):
