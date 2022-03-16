@@ -1,6 +1,6 @@
 # `kwandl` developer documentation
 
-If you're looking for user documentation, go [here](README.md).
+If you're looking for user documentation, go [here](https://github.com/egpbos/kwandl/blob/main/README.md).
 
 ## Development install
 

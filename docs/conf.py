@@ -60,7 +60,8 @@ todo_include_todos = False
 
 # -- Use autoapi.extension to run sphinx-apidoc -------
 
-autoapi_dirs = ['../kwandl']
+autoapi_dirs = ['..']
+autoapi_ignore = ['*test_kwandl.py', '*setup.py', '*conf.py']
 
 # -- Options for HTML output ----------------------------------------------
 
