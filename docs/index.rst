@@ -10,6 +10,7 @@ Welcome to kwandl's documentation!
   :maxdepth: 2
   :caption: Contents:
 
+  test.rst
   CONTRIBUTING.md
   README.dev.md
   CODE_OF_CONDUCT.md
