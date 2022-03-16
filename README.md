@@ -10,7 +10,6 @@ To add:
 
 -->
 [![fair-software badge](https://img.shields.io/badge/fair--software.eu-%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8B-yellow)](https://fair-software.eu)
-[![Documentation Status](https://readthedocs.org/projects/kwandl/badge/?version=latest)](https://kwandl.readthedocs.io/en/latest/?badge=latest)
 [![build](https://github.com/egpbos/kwandl/actions/workflows/build.yml/badge.svg)](https://github.com/egpbos/kwandl/actions/workflows/build.yml)
 
 # `kwandl`: Keyword arguments handled
@@ -24,9 +23,10 @@ cd kwandl
 python3 -m pip install .
 ```
 
-<!-- ## Documentation
+## Documentation
+[![Documentation Status](https://readthedocs.org/projects/kwandl/badge/?version=latest)](https://kwandl.readthedocs.io/en/latest/?badge=latest)
 
-Include a link to your project's full documentation here. -->
+For more details, see the [full documentation on Readthedocs](https://kwandl.readthedocs.io/en/latest#Contents).
 ## Contributing
 
 If you want to contribute to the development of `kwandl`,
