@@ -4,14 +4,14 @@ To add:
 
 [![RSD](https://img.shields.io/badge/rsd-kwandl-00a3e3.svg)](https://www.research-software.nl/software/kwandl) 
 
-[![DOI](https://zenodo.org/badge/DOI/<replace-with-created-DOI>.svg)](https://doi.org/<replace-with-created-DOI>)
-
 [![workflow cii badge](https://bestpractices.coreinfrastructure.org/projects/<replace-with-created-project-identifier>/badge)](https://bestpractices.coreinfrastructure.org/projects/<replace-with-created-project-identifier>)
 
 -->
 [![fair-software badge](https://img.shields.io/badge/fair--software.eu-%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8B-yellow)](https://fair-software.eu)
 [![build](https://github.com/egpbos/kwandl/actions/workflows/build.yml/badge.svg)](https://github.com/egpbos/kwandl/actions/workflows/build.yml)
 [![workflow pypi badge](https://img.shields.io/pypi/v/kwandl.svg?colorB=blue)](https://pypi.python.org/project/kwandl/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6371612.svg)](https://doi.org/10.5281/zenodo.6371612)
+
 
 # `kwandl`: Keyword arguments handled
 ## Installation
