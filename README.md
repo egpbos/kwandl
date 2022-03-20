@@ -2,7 +2,7 @@
 <!--
 To add:
 
-[![RSD](https://img.shields.io/badge/rsd-kwandl-00a3e3.svg)](https://www.research-software.nl/software/kwandl) [![workflow pypi badge](https://img.shields.io/pypi/v/kwandl.svg?colorB=blue)](https://pypi.python.org/project/kwandl/)
+[![RSD](https://img.shields.io/badge/rsd-kwandl-00a3e3.svg)](https://www.research-software.nl/software/kwandl) 
 
 [![DOI](https://zenodo.org/badge/DOI/<replace-with-created-DOI>.svg)](https://doi.org/<replace-with-created-DOI>)
 
@@ -11,11 +11,18 @@ To add:
 -->
 [![fair-software badge](https://img.shields.io/badge/fair--software.eu-%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8B-yellow)](https://fair-software.eu)
 [![build](https://github.com/egpbos/kwandl/actions/workflows/build.yml/badge.svg)](https://github.com/egpbos/kwandl/actions/workflows/build.yml)
+[![workflow pypi badge](https://img.shields.io/pypi/v/kwandl.svg?colorB=blue)](https://pypi.python.org/project/kwandl/)
 
 # `kwandl`: Keyword arguments handled
 ## Installation
 
-To install `kwandl` from the GitHub repository, do:
+Install `kwandl` using `pip`:
+
+```console
+python3 -m pip install kwandl
+```
+
+To install from the GitHub repository, do:
 
 ```console
 git clone https://github.com/egpbos/kwandl.git
