@@ -120,29 +120,8 @@ This section describes how to make a release in 3 parts:
 In a new terminal, without an activated virtual environment or an env directory:
 
 ```shell
-# prepare a new directory
-cd $(mktemp -d --tmpdir kwandl.XXXXXX)
-
-# fresh git clone ensures the release has the state of origin/main branch
-git clone https://github.com/egpbos/kwandl .
-
-# prepare a clean virtual environment and activate it
-python3 -m venv env
-source env/bin/activate
-
-# make sure to have a recent version of pip and setuptools
-python3 -m pip install --upgrade pip setuptools
-
-# install runtime dependencies and publishing dependencies
-python3 -m pip install --no-cache-dir .
-python3 -m pip install --no-cache-dir .[publishing]
-
-# clean up any previously generated artefacts
-rm -rf kwandl.egg-info
-rm -rf dist
-
 # create the source distribution and the wheel
-python3 setup.py sdist bdist_wheel
+python3 -m build
 
 # upload to test pypi instance (requires credentials)
 twine upload --repository-url https://test.pypi.org/legacy/ dist/*
@@ -155,7 +134,7 @@ and verify that your package was uploaded successfully. Keep the terminal open, 
 In a new terminal, without an activated virtual environment or an env directory:
 
 ```shell
-cd $(mktemp -d --tmpdir kwandl-test.XXXXXX)
+cd $(mktemp -d kwandl-test.XXXXXX)
 
 # prepare a clean virtual environment and activate it
 python3 -m venv env
