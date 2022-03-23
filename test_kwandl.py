@@ -78,6 +78,22 @@ def test_forward_with_kwargs_as_dict():
     assert(result == ({'kwarg1': 1}, {'kwarg2': 2}, {'kwarg1': 1, 'kwarg2': 2}))
 
 
+def test_forward_nested():
+    """
+    Tests whether nested functions work.
+
+    This was not trivial, since the original uncompile claimed to not support nested functions.
+    """
+    @kwandl.forward
+    def function_1_and_2_nested(**kwargs):
+        function1_result = function1(**kwargs)
+        function2_result = function2(**kwargs)
+        return function1_result, function2_result
+    result = function_1_and_2_nested(kwarg1=1, kwarg2=2)
+    assert(result[0] == {'kwarg1': 1})
+    assert(result[1] == {'kwarg2': 2})
+
+
 def test_forward_value_error_when_nothing_to_forward():
     """Tests whether the decorator throws an exception when there is nothing valid to forward."""
     with pytest.raises(ValueError, match=r"decorator kwandl.forward cannot find any kwargs object to forward in function_with_just_unexpanded_kwargs"):
