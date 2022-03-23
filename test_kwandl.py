@@ -76,3 +76,15 @@ def test_forward_with_kwargs_as_dict():
     """
     result = function_with_kwargs_as_dict(kwarg1=1, kwarg2=2)
     assert(result == ({'kwarg1': 1}, {'kwarg2': 2}, {'kwarg1': 1, 'kwarg2': 2}))
+
+
+def test_forward_value_error_when_nothing_to_forward():
+    """Tests whether the decorator throws an exception when there is nothing valid to forward."""
+    with pytest.raises(ValueError, match=r"decorator kwandl.forward cannot find any kwargs object to forward in function_with_just_unexpanded_kwargs"):
+        @kwandl.forward
+        def function_with_just_unexpanded_kwargs(**kwargs):
+            function_with_dict_parameter(kwargs)
+    with pytest.raises(ValueError, match=r"decorator kwandl.forward cannot find any kwargs object to forward in function_with_just_kwargs_as_dict"):
+        @kwandl.forward
+        def function_with_just_kwargs_as_dict(**kwargs):
+            function_with_dict_parameter(just_a_dict=kwargs)
