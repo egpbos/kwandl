@@ -22,12 +22,10 @@ Install `kwandl` using `pip`:
 python3 -m pip install kwandl
 ```
 
-To install from the GitHub repository, do:
+To install the most recent development version directly from the GitHub repository run:
 
 ```console
-git clone https://github.com/egpbos/kwandl.git
-cd kwandl
-python3 -m pip install .
+python3 -m pip install git+https://github.com/egpbos/kwandl.git
 ```
 
 ## Usage
