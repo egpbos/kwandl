@@ -10,7 +10,7 @@ def get_kwargs_applicable_to_function(function, kwargs):
             if key in inspect.getfullargspec(function).args}
 
 
-class ReplaceKwargsInCallsNodeTransformer(ast.NodeTransformer):
+class ForwardNodeTransformer(ast.NodeTransformer):
     """
     Replace Call nodes with kwargs keywords in the AST of the decorated function.
 
@@ -27,7 +27,7 @@ class ReplaceKwargsInCallsNodeTransformer(ast.NodeTransformer):
     """
     def __init__(self, func, calling_decorator_name: str):
         """
-        ReplaceKwargsInCallsNodeTransformer initializer.
+        ForwardNodeTransformer initializer.
 
         Input:
             func: the function object we're decorating.
@@ -142,8 +142,8 @@ class ReplaceKwargsInCallsNodeTransformer(ast.NodeTransformer):
 
         new_node.body = expected_kwargs_check + new_node.body
 
-        # === 3. rename the returned function so we can access it easily from replace_kwargs_in_calls ===
-        new_node.name = "_func_with_kwargs_in_calls_replaced"
+        # === 3. rename the returned function so we can access it easily from `forward` ===
+        new_node.name = "_func_with_kwargs_forwarded"
 
         # === AST logistics ===
         ast.copy_location(new_node, node)
@@ -213,13 +213,13 @@ def parse_snippet(source, filename, mode, flags, firstlineno):
     return a
 
 
-def replace_kwargs_in_calls(func):
+def forward(func):
     # Parse AST and modify it.
     uncompiled = uncompile(func.__code__)
 
     # Parse AST and modify it
     tree = parse_snippet(*uncompiled)
-    tree = ReplaceKwargsInCallsNodeTransformer(func, 'replace_kwargs_in_calls').visit(tree)
+    tree = ForwardNodeTransformer(func, 'forward').visit(tree)
     uncompiled[0] = tree
 
     # Recompile wrapped function
@@ -228,7 +228,7 @@ def replace_kwargs_in_calls(func):
     exec_output = {}
     # Note: using func.__globals__ is critical, otherwise names of functions used in func cannot be found
     exec(recompiled, func.__globals__, exec_output)
-    wrapper = exec_output['_func_with_kwargs_in_calls_replaced']
+    wrapper = exec_output['_func_with_kwargs_forwarded']
     functools.update_wrapper(wrapper, func)
 
     return wrapper

@@ -17,10 +17,10 @@ def function_1_and_2(**kwargs):
 
 
 # decorated version:
-function_1_and_2_kwandled = kwandl.replace_kwargs_in_calls(function_1_and_2)
+function_1_and_2_kwandled = kwandl.forward(function_1_and_2)
 
 
-def test_replace_kwargs_in_calls():
+def test_forward():
     with pytest.raises(TypeError, match=r"function1\(\) got an unexpected keyword argument 'kwarg2'"):
         function_1_and_2(kwarg1=1, kwarg2=2)
     result = function_1_and_2_kwandled(kwarg1=1, kwarg2=2)
@@ -28,7 +28,7 @@ def test_replace_kwargs_in_calls():
     assert(result[1] == {'kwarg2': 2})
 
 
-def test_replace_kwargs_in_calls_throw_type_error_on_unexpected_kwarg():
+def test_forward_throw_type_error_on_unexpected_kwarg():
     with pytest.raises(TypeError, match=r"function_1_and_2\(\) got an unexpected keyword argument 'nonexistent_kwarg'"):
         function_1_and_2_kwandled(nonexistent_kwarg=1)
 
@@ -37,7 +37,7 @@ def function_with_dict_parameter(just_a_dict=None):
     return just_a_dict
 
 
-@kwandl.replace_kwargs_in_calls
+@kwandl.forward
 def function_with_unexpanded_kwargs(**kwargs):
     result1 = function1(**kwargs)
     result2 = function2(**kwargs)
@@ -45,7 +45,7 @@ def function_with_unexpanded_kwargs(**kwargs):
     return result1, result2, result3
 
 
-def test_replace_kwargs_in_calls_with_unexpanded_kwargs():
+def test_forward_with_unexpanded_kwargs():
     """
     Test the corner case of kwargs being passed just as a dictionary.
     

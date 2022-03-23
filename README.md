@@ -34,7 +34,7 @@ python3 -m pip install .
 
 `kwandl` is essentially a box of magic tricks to make working with `kwargs` smoother.
 
-### Passing only relevant `kwargs`
+### Forward passing only relevant `kwargs`
 Say you have a function `top` which takes `**kwargs` and passes them on to `ding` and `boop`:
 ```python
 def top(**kwargs):
@@ -53,7 +53,7 @@ This means `top(dingo="blurg", boonk=None)` will fail with a `TypeError`, becaus
 
 `kwandl` solves this for you with one simple decorator:
 ```python
-@kwandl.replace_kwargs_in_calls
+@kwandl.forward
 def top(**kwargs):
     ding(**kwargs)
     boop(**kwargs)
@@ -69,8 +69,8 @@ def top(**kwargs):
     boop(**kwandl.get_kwargs_applicable_to_function(boop, kwargs))
 ```
 
-Note, however, that `@kwandl.replace_kwargs_in_calls` does a bit more: it also checks whether kwargs contains keyword arguments that are a match to neither `ding` nor `boop` and raises a `TypeError` if so.
-A complete alternative notation for `@kwandl.replace_kwargs_in_calls` would then be:
+Note, however, that `@kwandl.forward` does a bit more: it also checks whether kwargs contains keyword arguments that are a match to neither `ding` nor `boop` and raises a `TypeError` if so.
+A complete alternative notation for `@kwandl.forward` would then be:
 
 ```python
 def top(**kwargs):
