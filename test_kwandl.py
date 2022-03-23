@@ -55,3 +55,24 @@ def test_forward_with_unexpanded_kwargs():
     """
     result = function_with_unexpanded_kwargs(kwarg1=1, kwarg2=2)
     assert(result == ({'kwarg1': 1}, {'kwarg2': 2}, {'kwarg1': 1, 'kwarg2': 2}))
+
+
+@kwandl.forward
+def function_with_kwargs_as_dict(**kwargs):
+    result1 = function1(**kwargs)
+    result2 = function2(**kwargs)
+    result3 = function_with_dict_parameter(just_a_dict=kwargs)
+    return result1, result2, result3
+
+
+def test_forward_with_kwargs_as_dict():
+    """
+    Test the corner case of kwargs being passed just as a dictionary via a keyword argument.
+    
+    The exceptional part about this is that kwargs in that call to function_with_dict_parameter
+    should not be kwandl.forwarded, in contrast to the two calls to function1 and function2.
+    For this, we added a check on `kw.arg is None` in the AST, because that distinguishes the
+    "double starred" kwargs argument from a regular keyword argument like `just_a_dict=kwargs`.
+    """
+    result = function_with_kwargs_as_dict(kwarg1=1, kwarg2=2)
+    assert(result == ({'kwarg1': 1}, {'kwarg2': 2}, {'kwarg1': 1, 'kwarg2': 2}))
