@@ -97,6 +97,11 @@ class ForwardNodeTransformer(ast.NodeTransformer):
         # === 2. add a statement to the top checking if all kwargs are expected: ===
         # first visit all child nodes
         self.generic_visit(node)
+
+        # check whether there are any expected_kwargs; if not, the decorator should not be used
+        if not self.expected_kwargs:
+            raise ValueError(f"decorator kwandl.forward cannot find any kwargs object to forward in {self.func.__name__}")
+
         # then add the statement at the top:
         new_node = node
 
