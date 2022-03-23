@@ -162,8 +162,6 @@ PyCF_MASK = sum(v for k, v in vars(__future__).items() if k.startswith("CO_FUTUR
 
 def uncompile(c):
     """uncompile(codeobj) -> [source, filename, mode, flags, firstlineno]."""
-    if c.co_flags & inspect.CO_NESTED or c.co_freevars:
-        raise NotImplementedError("Nested functions not supported")
     if c.co_name == "<lambda>":
         raise NotImplementedError("Lambda functions not supported")
     if c.co_filename == "<string>":
