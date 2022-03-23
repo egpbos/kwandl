@@ -47,7 +47,8 @@ class ForwardNodeTransformer(ast.NodeTransformer):
         self.generic_visit(node)
         # then check if this is a call with **kwargs argument
         for ix, kw in enumerate(node.keywords):
-            if isinstance(kw.value, ast.Name) and kw.value.id == "kwargs":
+            # kw.arg must be None, otherwise it's not a double-starred keyword, but an object passed as keyword argument
+            if isinstance(kw.value, ast.Name) and kw.value.id == "kwargs" and kw.arg is None:
                 # then do the transformation on this node:
                 new_node = node
                 wrapper_function = ast.Attribute(value=ast.Name(id='kwandl', ctx=ast.Load()), attr='get_kwargs_applicable_to_function', ctx=ast.Load())
