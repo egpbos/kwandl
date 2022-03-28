@@ -135,3 +135,31 @@ def test_forward_to_non_global_attribute():
     # a function that forwards to non-global function:
     result = function_that_calls_non_global_attribute(days=365)
     assert(result == {'days': 365})
+
+
+class StatefulClass:
+    """This class changes output when called (i.e. instances are created) multiple times."""
+    used = False
+    def __init__(self):
+        if not StatefulClass.used:
+            self.fresh = True
+            StatefulClass.used = True
+        else:
+            self.fresh = False
+
+    def run(self, ding=1):
+        if self.fresh:
+            return "first call!"
+        return f"fail. also: {ding=}"
+
+
+@kwandl.forward
+def function_that_calls_attribute_of_changing_stateful_class(**kwargs):
+    return StatefulClass().run(**kwargs)
+
+
+def test_forward_to_attribute_of_changing_stateful_class():
+    """Calling functions in modules or classes makes things a bit more complicated in the AST; this tests that."""
+    # a function that forwards to non-global function:
+    result = function_that_calls_attribute_of_changing_stateful_class(ding=3.14)
+    assert(result == "first call!")
