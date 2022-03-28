@@ -104,3 +104,21 @@ def test_forward_value_error_when_nothing_to_forward():
         @kwandl.forward
         def function_with_just_kwargs_as_dict(**kwargs):
             function_with_dict_parameter(just_a_dict=kwargs)
+
+
+class MyClass:
+    @staticmethod
+    def method(kwarg1=None):
+        return {'kwarg1': kwarg1}
+
+
+@kwandl.forward
+def function_that_calls_attribute(**kwargs):
+    return MyClass.method(**kwargs)
+
+
+def test_forward_to_attribute():
+    """Calling functions in modules or classes makes things a bit more complicated in the AST; this tests that."""
+    # a globally defined function:
+    result = function_that_calls_attribute(kwarg1=1)
+    assert(result == {'kwarg1': 1})

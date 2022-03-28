@@ -2,6 +2,11 @@ import __future__
 import ast
 import functools
 import inspect
+import sys
+
+if sys.version_info < (3, 9):
+    from astunparse import unparse
+    ast.unparse = unparse
 
 
 def get_kwargs_applicable_to_function(function, kwargs):
@@ -36,6 +41,33 @@ class ForwardNodeTransformer(ast.NodeTransformer):
         self.calling_decorator_name = calling_decorator_name
         self.func = func
         self.expected_kwargs = []
+        # by default, we try to gather the expected kwargs in the AST, so the decorated function doesn't
+        # need to get the expected_kwargs itself dynamically; the following flag is switched if this
+        # is not possible (when local or at least non-global functions are called):
+        self.use_expected_kwargs_in_ast = True
+        self.forwardized_function_names = []
+
+    def _add_funcs_kwparams_to_expected_kwargs(self, new_node):
+        # add func's actual keyword parameters to expected_kwargs:
+        if isinstance(new_node.func, ast.Name):
+            called_name = new_node.func.id
+            called_function_object = self.func.__globals__[called_name]
+        elif isinstance(new_node.func, ast.Attribute):
+            called_name = ast.unparse(new_node.func)
+            top_level_object_name = called_name.split('.')[0]
+            if top_level_object_name in self.func.__globals__:
+                # exec(f"{top_level_object_name} = self.func.__globals__[top_level_object_name]")
+                called_function_object = eval(called_name, self.func.__globals__)
+            else:
+                # The call is on a non-global object, so we cannot get the keywords here.
+                # We defer then to a different method:
+                self.use_expected_kwargs_in_ast = False
+                return called_name
+        # note: normal arguments (without default value) can also be used as keyword arguments
+        # by the caller, so we can just take all args here:
+        called_function_arguments = inspect.getfullargspec(called_function_object).args
+        self.expected_kwargs += called_function_arguments
+        return called_name
 
     def visit_Call(self, node):  # noqa: N802
         """
@@ -56,16 +88,13 @@ class ForwardNodeTransformer(ast.NodeTransformer):
                 new_node.keywords.remove(kw)
                 new_node.keywords.insert(ix, ast.keyword(value=wrapped_kwargs))
 
-                # add func's actual keyword parameters to expected_kwargs:
-                called_function_object = self.func.__globals__[new_node.func.id]
-                # note: normal arguments (without default value) can also be used as keyword arguments
-                # by the caller, so we can just take all args here:
-                called_function_arguments = inspect.getfullargspec(called_function_object).args
-                self.expected_kwargs += called_function_arguments
+                if self.use_expected_kwargs_in_ast:
+                    called_name = self._add_funcs_kwparams_to_expected_kwargs(new_node)
 
                 # AST logistics
                 ast.copy_location(new_node, node)
                 ast.fix_missing_locations(new_node)
+                self.forwardized_function_names.append(called_name)
                 return new_node
         # if no kwargs argument was found, just return the node unchanged:
         return node
@@ -98,15 +127,19 @@ class ForwardNodeTransformer(ast.NodeTransformer):
         # first visit all child nodes
         self.generic_visit(node)
 
-        # check whether there are any expected_kwargs; if not, the decorator should not be used
-        if not self.expected_kwargs:
+        if not self.forwardized_function_names:
             raise ValueError(f"decorator kwandl.forward cannot find any kwargs object to forward in {self.func.__name__}")
 
-        # then add the statement at the top:
         new_node = node
 
         # now add the expected_kwargs check
-        expected_kwargs_ast = ast.List(elts=[ast.Constant(value=element) for element in self.expected_kwargs], ctx=ast.Load())
+        if self.use_expected_kwargs_in_ast:
+            expected_kwargs_ast = ast.List(elts=[ast.Constant(value=element) for element in self.expected_kwargs], ctx=ast.Load())
+        else:
+            # Get the expected keywords dynamically
+            args_concatted = " + ".join(f"kwandl.inspect.getfullargspec({name}).args" for name in self.forwardized_function_names)
+            unique_args = "list(set(" + args_concatted + "))"
+            expected_kwargs_ast = ast.parse(unique_args).body[0].value
 
         # AST for raising TypeError if unexpected key used:
         typeerror_message = self.func.__name__ + "() got an unexpected keyword argument '"
@@ -115,11 +148,11 @@ class ForwardNodeTransformer(ast.NodeTransformer):
         unexpected_keywords_ast = ast.Assign(
             targets=[ast.Name(id='unexpected_keywords', ctx=ast.Store())],
             value=ast.BinOp(left=ast.Call(func=ast.Name(id='set', ctx=ast.Load()),
-                                          args=[kwargs_keys_ast], keywords=[]
-                                          ),
+                                        args=[kwargs_keys_ast], keywords=[]
+                                        ),
                             op=ast.Sub(),
                             right=ast.Call(func=ast.Name(id='set', ctx=ast.Load()), args=[expected_kwargs_ast],
-                                           keywords=[])
+                                        keywords=[])
                             )
         )
         # next line represents: `raise TypeError(typeerror_message + unexpected_keywords.pop() + "'")`
@@ -139,12 +172,10 @@ class ForwardNodeTransformer(ast.NodeTransformer):
 
         # if-statement checking for unexpected_keywords:
         check_unexpected_keywords_ast = ast.If(test=ast.Name(id='unexpected_keywords', ctx=ast.Load()),
-                                               body=[type_error_ast], orelse=[])
+                                            body=[type_error_ast], orelse=[])
 
-        # DEBUG PRINT:
-        debug_print_ast = ast.Expr(value=ast.Call(func=ast.Name(id='print', ctx=ast.Load()), args=[ast.Constant(value='hoi')], keywords=[]))
         # put it all together:
-        expected_kwargs_check = [debug_print_ast, unexpected_keywords_ast, check_unexpected_keywords_ast]
+        expected_kwargs_check = [unexpected_keywords_ast, check_unexpected_keywords_ast]
 
         new_node.body = expected_kwargs_check + new_node.body
 
