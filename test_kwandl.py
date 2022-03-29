@@ -152,7 +152,7 @@ class StatefulClass:
     def run(self, ding=1):
         if self.fresh:
             return "first call!"
-        return f"fail. also: {ding=}"
+        return f"fail. also: ding={ding}"
 
 
 @kwandl.forward
