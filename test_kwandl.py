@@ -133,8 +133,10 @@ def function_that_calls_non_global_attribute(**kwargs):
 def test_forward_to_non_global_attribute():
     """Calling functions in modules or classes makes things a bit more complicated in the AST; this tests that."""
     # a function that forwards to non-global function:
-    result = function_that_calls_non_global_attribute(days=365)
-    assert(result == {'days': 365})
+    with pytest.raises(TypeError, match=r"function_that_calls_non_global_attribute\(\) got an unexpected keyword argument 'days'"):
+        result = function_that_calls_non_global_attribute(days=365)
+    result = function_that_calls_non_global_attribute(kwarg1=1)
+    assert(result == {'kwarg1': 1})
 
 
 class StatefulClass:
