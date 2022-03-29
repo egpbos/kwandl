@@ -9,7 +9,7 @@ authors:
     orcid: "https://orcid.org/0000-0002-6033-960X"
 date-released: 2022-03-11
 # doi: <insert your DOI here>
-version: "0.1.0"
+version: "0.2.0"
 repository-code: "https://github.com/egpbos/kwandl"
 keywords:
   - kwargs
