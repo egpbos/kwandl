@@ -158,8 +158,40 @@ def function_that_calls_attribute_of_changing_stateful_class(**kwargs):
     return StatefulClass().run(**kwargs)
 
 
-def test_forward_to_attribute_of_changing_stateful_class():
-    """Calling functions in modules or classes makes things a bit more complicated in the AST; this tests that."""
-    # a function that forwards to non-global function:
+def test_forward_to_attribute_of_changing_expression():
+    """
+    When the called expression changes between calls, the simple method fails.
+    
+    Simple method: replace call(**kwargs) with (more or less):
+        call(**kwandl.get_kwargs_applicable_to_func(call, kwargs))
+    But if "call" is an expression that can give different outputs, e.g. when we
+    replace "call" with "random_callable_thing()", then the "call" passed to 
+    get_kwargs_applicable_to_func will be a different object than the one that is
+    actually called and thus the wrong kwargs will have been returned by
+    get_kwargs_applicable_to_func. To remedy this, we need to store the expression
+    in a variable before passing it to get_kwargs_applicable_to_func and calling it.
+    We didn't do this in the first versions. This test makes sure we keep taking
+    this into account.
+    """
     result = function_that_calls_attribute_of_changing_stateful_class(ding=3.14)
     assert(result == "first call!")
+
+
+class MyClass2:
+    @staticmethod
+    def method(kwarg2=None):
+        return {'kwarg2': kwarg2}
+
+@kwandl.forward
+def function_that_calls_reassigned_local_attribute(**kwargs):
+    MyLocalClass = MyClass
+    result1 = MyLocalClass.method(**kwargs)
+    MyLocalClass = MyClass2
+    result2 = MyLocalClass.method(**kwargs)
+    return result1, result2
+
+
+def test_forward_to_reassigned_local_attribute():
+    """The local variable which/whose attribute is called can be reassigned, so we must check kwargs before each call."""
+    result = function_that_calls_reassigned_local_attribute(kwarg1=1, kwarg2=2)
+    assert(result == ({'kwarg1': 1}, {'kwarg2': 2}))
