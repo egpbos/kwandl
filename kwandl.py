@@ -90,6 +90,8 @@ class ForwardNodeTransformer(ast.NodeTransformer):
 
                 if self.use_expected_kwargs_in_ast:
                     called_name = self._add_funcs_kwparams_to_expected_kwargs(new_node)
+                else:
+                    called_name = ast.unparse(new_node.func)
 
                 # AST logistics
                 ast.copy_location(new_node, node)
