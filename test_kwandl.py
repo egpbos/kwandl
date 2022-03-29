@@ -197,3 +197,18 @@ def test_forward_to_reassigned_local_attribute():
     """The local variable which/whose attribute is called can be reassigned, so we must check kwargs before each call."""
     result = function_that_calls_reassigned_local_attribute(kwarg1=1, kwarg2=2)
     assert(result == ({'kwarg1': 1}, {'kwarg2': 2}))
+
+
+@kwandl.forward
+def function_1_and_2_local_copies(**kwargs):
+    function1_local = function1
+    function2_local = function2
+    function1_result = function1_local(**kwargs)
+    function2_result = function2_local(**kwargs)
+    return function1_result, function2_result
+
+
+def test_forward_local():
+    result = function_1_and_2_local_copies(kwarg1=1, kwarg2=2)
+    assert(result[0] == {'kwarg1': 1})
+    assert(result[1] == {'kwarg2': 2})
