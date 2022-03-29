@@ -126,9 +126,6 @@ class ForwardNodeTransformer(ast.NodeTransformer):
         new_node.decorator_list = new_decorator_list
 
         # === 2. add a statement to the top checking if all kwargs are expected: ===
-        # first visit all child nodes
-        self.generic_visit(node)
-
         if not self.forwardized_function_names:
             raise ValueError(f"decorator kwandl.forward cannot find any kwargs object to forward in {self.func.__name__}")
 
