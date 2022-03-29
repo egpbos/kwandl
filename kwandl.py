@@ -144,7 +144,6 @@ class ForwardNodeTransformer(ast.NodeTransformer):
             expected_kwargs_ast = ast.parse(unique_args).body[0].value
 
         # AST for raising TypeError if unexpected key used:
-        typeerror_message = self.func.__name__ + "() got an unexpected keyword argument '"
         kwargs_keys_ast = ast.Call(func=ast.Attribute(value=ast.Name(id='kwargs', ctx=ast.Load()), attr='keys', ctx=ast.Load()), args=[], keywords=[])
         # next line represents: `unexpected_keywords = set(kwargs.keys()) - set(expected_keywords)`
         unexpected_keywords_ast = ast.Assign(
@@ -157,20 +156,8 @@ class ForwardNodeTransformer(ast.NodeTransformer):
                                         keywords=[])
                             )
         )
-        # next line represents: `raise TypeError(typeerror_message + unexpected_keywords.pop() + "'")`
-        # so it just pops one unexpected_keyword off the difference set, which is in line with how
-        # unexpected keyword arguments normally get handled (trigger exceptions one by one)
-        type_error_ast = ast.Raise(exc=ast.Call(
-            func=ast.Name(id='TypeError', ctx=ast.Load()), args=[
-                ast.JoinedStr(values=[
-                    ast.Constant(value=typeerror_message),
-                    ast.FormattedValue(value=ast.Call(
-                        func=ast.Attribute(value=ast.Name(id='unexpected_keywords', ctx=ast.Load()), attr='pop', ctx=ast.Load()),
-                        args=[], keywords=[]), conversion=-1),
-                    ast.Constant(value="'"),
-                ])
-            ], keywords=[])
-        )
+        typeerror_message = self.func.__name__ + "() got an unexpected keyword argument '"
+        type_error_ast = ast.parse(f"""raise TypeError("{typeerror_message}" + unexpected_keywords.pop() + "'")""").body[0]
 
         # if-statement checking for unexpected_keywords:
         check_unexpected_keywords_ast = ast.If(test=ast.Name(id='unexpected_keywords', ctx=ast.Load()),
