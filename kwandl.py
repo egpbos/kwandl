@@ -85,26 +85,34 @@ class ForwardNodeTransformer(ast.NodeTransformer):
                          when calling `thing.bla(kwarg=1)`
             non_global: bool, True if the called function is a non-global (i.e. local or non-local)
         """
+        non_global = False
+
         # add func's actual keyword parameters to expected_kwargs:
         if isinstance(new_node.func, ast.Name):
             called_name = new_node.func.id
-            called_function_object = self.func.__globals__[called_name]
+            if called_name in self.func.__globals__:
+                called_function_object = self.func.__globals__[called_name]
+            else:
+                non_global = True
         elif isinstance(new_node.func, ast.Attribute):
             called_name = ast.unparse(new_node.func)
             top_level_object_name = called_name.split('.')[0]
             if top_level_object_name in self.func.__globals__:
-                # exec(f"{top_level_object_name} = self.func.__globals__[top_level_object_name]")
                 called_function_object = eval(called_name, self.func.__globals__)  # noqa: eval-used
             else:
-                # The call is on a non-global object, so we cannot get the keywords here.
-                # We get them later then.
-                self.local_function_names.append(called_name)
-                return called_name, True
-        # note: normal arguments (without default value) can also be used as keyword arguments
-        # by the caller, so we can just take all args here:
-        called_function_arguments = inspect.getfullargspec(called_function_object).args
-        self.expected_kwargs += called_function_arguments
-        return called_name, False
+                non_global = True
+
+        if non_global:
+            # The call is on a non-global object, so we cannot get the keywords here.
+            # We get them later then.
+            self.local_function_names.append(called_name)
+        else:
+            # note: normal arguments (without default value) can also be used as keyword arguments
+            # by the caller, so we can just take all args here:
+            called_function_arguments = inspect.getfullargspec(called_function_object).args
+            self.expected_kwargs += called_function_arguments
+
+        return called_name, non_global
 
     def visit_Call(self, node):  # noqa: N802
         """
