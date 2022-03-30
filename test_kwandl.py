@@ -212,3 +212,63 @@ def test_forward_local():
     result = function_1_and_2_local_copies(kwarg1=1, kwarg2=2)
     assert(result[0] == {'kwarg1': 1})
     assert(result[1] == {'kwarg2': 2})
+
+
+class ClassWithForwardedStaticMethods:
+    @staticmethod
+    @kwandl.forward
+    def method1(**kwargs):
+        function1_result = function1(**kwargs)
+        function2_result = function2(**kwargs)
+        return function1_result, function2_result
+
+    # @kwandl.forward
+    # @staticmethod
+    # def method2(**kwargs):
+    #     function1_result = function1(**kwargs)
+    #     function2_result = function2(**kwargs)
+    #     return function1_result, function2_result
+
+
+def test_forward_staticmethod():
+    result = ClassWithForwardedStaticMethods.method1(kwarg1=1, kwarg2=2)
+    assert(result[0] == {'kwarg1': 1})
+    assert(result[1] == {'kwarg2': 2})
+    # result = ClassWithForwardedStaticMethods.method2(kwarg1=1, kwarg2=2)
+    # assert(result[0] == {'kwarg1': 1})
+    # assert(result[1] == {'kwarg2': 2})
+
+
+class RandomDescriptor:
+    """A descriptor that changes the fetched function object between calls."""
+    def __init__(self):
+        self.switch = True
+
+    def __get__(self, obj, objtype=None):
+        self.switch = not self.switch
+        if self.switch:
+            return function1
+        return function2
+
+
+class CallableWithRandomDescriptor:
+    descriptor = RandomDescriptor()
+
+    @kwandl.forward
+    def __call__(self, **kwargs):
+        return self.descriptor(**kwargs)
+
+
+def test_forward_random_descriptor():
+    """A descriptor can dynamically change between retrievals, so it should only be gotten once.
+    
+    If it's gotten more than once inside kwandl.forward, it will fail, because the keywords it
+    passes will be wrong (will belong to the previous "get").
+    """
+    result = CallableWithRandomDescriptor()(kwarg2=2)
+    assert(result == {'kwarg2': 2})
+
+
+# TODO:
+# - Add test case that checks if the function has **kwargs at all
+# - Add transitivity test that tries to run on function that calls another kwandl.forwarded function in turn. Expected keywords of both functions should be combined in the top-level call.
