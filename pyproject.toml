@@ -15,6 +15,7 @@ legacy_tox_ini = """
 [tox]
 envlist = py37,py38,py39
 skip_missing_interpreters = true
+isolated_build = true
 [testenv]
 commands = pytest
 extras = dev
