@@ -2,6 +2,7 @@ __version__ = "0.2.0"
 
 import __future__
 import ast
+from collections import defaultdict
 import functools
 import inspect
 import sys
@@ -80,6 +81,10 @@ class ForwardNodeTransformer(ast.NodeTransformer):
         self.local_function_names = []
         # this message will be necessary in both visit functions below, so define it here:
         self.typeerror_message = self.func.__name__ + "() got an unexpected keyword argument '"
+        # a list of statements (ast.stmt) that we are currently in, in order of when we entered them:
+        self.in_stmt = []
+        # wrapped calls, with containing statement nodes as keys
+        self.wrapped_call_in_stmt = defaultdict(dict)
 
     def _add_funcs_kwparams_to_expected_kwargs(self, new_node):
         """
@@ -134,11 +139,27 @@ class ForwardNodeTransformer(ast.NodeTransformer):
                 # first get keywords and check whether the called function is global or not
                 called_name, non_global = self._add_funcs_kwparams_to_expected_kwargs(new_node)
 
+                # store the name for later use in visit_stmt and determine the wrapper_name
+                if self.in_stmt:
+                    parent_stmt = self.in_stmt[-1]
+                    self.wrapped_call_in_stmt[parent_stmt]["wrapped_called_name"] = called_name
+                    wrapper_name = f"__kwandl_wrapped_call_{len(self.wrapped_call_in_stmt)}"
+                    self.wrapped_call_in_stmt[parent_stmt]["wrapper_name"] = wrapper_name
+
+                    new_node.func = ast.Name(id=wrapper_name, ctx=ast.Load())
+                    function_call_name = wrapper_name
+                    # in this case, we must also replace the name in self.local_function_names:
+                    if non_global:
+                        self.local_function_names.remove(called_name)
+                        self.local_function_names.append(function_call_name)
+                else:
+                    function_call_name = called_name
+
                 # then do the appropriate transformation on this node:
                 if non_global:
                     wrapper_function = ast.parse('kwandl._get_kwargs_applicable_to_function_and_check_expected_keywords').body[0].value
                     wrapped_kwargs = ast.Call(func=wrapper_function,
-                                              args=[new_node.func, ast.Constant(value=called_name), kw.value,
+                                              args=[new_node.func, ast.Constant(value=function_call_name), kw.value,
                                                     ast.Name(id="expected_keywords", ctx=ast.Load()),
                                                     ast.Name(id="local_function_names", ctx=ast.Load()),
                                                     ast.Constant(value=self.typeerror_message)],
@@ -230,6 +251,60 @@ class ForwardNodeTransformer(ast.NodeTransformer):
         ast.copy_location(new_node, node)
         ast.fix_missing_locations(new_node)
         return new_node
+
+    def visit_stmt(self, node):
+        """
+        In calls with kwandl-wrapped kwargs, we need to first reassign the to be
+        called function to a new variable to avoid `__get__`ting it twice. In case
+        of exotic callables, like descriptors, which may return different functions
+        with different sets of keyword arguments for different `__get__` calls, this
+        will make sure it still works.
+
+        To put these reassignments in, we must visit the statements (`ast.stmt`)
+        that contain the wrapped calls and return a reassignment statement followed
+        by the original statement with the wrapped call.
+        """
+        self.in_stmt.append(node)
+        self.generic_visit(node)
+        self.in_stmt.pop()
+
+        if self.wrapped_call_in_stmt.get(node):
+            wrapper_name = self.wrapped_call_in_stmt.get(node)["wrapper_name"]
+            wrapped_called_name = self.wrapped_call_in_stmt.get(node)["wrapped_called_name"]
+            reassignment_ast = ast.parse(f"""{wrapper_name} = {wrapped_called_name}""").body[0]
+            return [reassignment_ast, node]
+
+        return node
+
+    def visit_Expr(self, node):
+        return self.visit_stmt(node)
+
+    def visit_Return(self, node):
+        return self.visit_stmt(node)
+
+    def visit_Assign(self, node):
+        return self.visit_stmt(node)
+
+    def visit_AnnAssign(self, node):
+        return self.visit_stmt(node)
+
+    def visit_AugAssign(self, node):
+        return self.visit_stmt(node)
+
+    def visit_Assert(self, node):
+        return self.visit_stmt(node)
+
+    def visit_Raise(self, node):
+        return self.visit_stmt(node)
+
+    def visit_If(self, node):
+        return self.visit_stmt(node)
+
+    def visit_For(self, node):
+        return self.visit_stmt(node)
+
+    def visit_While(self, node):
+        return self.visit_stmt(node)
 
 
 # The following is modified from https://github.com/eigenfoo/random/blob/master/python/ast-hiding-yield/00-prototype/hiding-yield.ipynb

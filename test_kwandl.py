@@ -252,6 +252,7 @@ class RandomDescriptor:
 
 
 class CallableWithRandomDescriptor:
+    # note that there is only one descriptor instance per class attribute, not per instance!
     descriptor = RandomDescriptor()
 
     @kwandl.forward
@@ -265,7 +266,39 @@ def test_forward_random_descriptor():
     If it's gotten more than once inside kwandl.forward, it will fail, because the keywords it
     passes will be wrong (will belong to the previous "get").
     """
-    result = CallableWithRandomDescriptor()(kwarg2=2)
+    with pytest.raises(TypeError, match=r"__call__\(\) got an unexpected keyword argument 'kwarg1'"):
+        result = CallableWithRandomDescriptor()(kwarg1=1)
+    result = CallableWithRandomDescriptor()(kwarg1=1)
+    assert(result == {'kwarg1': 1})
+
+
+class CallableWithRandomDescriptorAndNestedIf:
+    descriptor = RandomDescriptor()
+
+    @kwandl.forward
+    def __call__(self, **kwargs):
+        call_this = lambda **x: {}
+        if False:
+            return {'we should never': 'get here'}
+        elif True:
+            call_this = self.descriptor
+            return call_this(**kwargs)
+        return {'we should never': 'get here either'}
+
+
+def test_forward_random_descriptor_nested_orelse():
+    """Like test_forward_random_descriptor, but from inside a nested conditional or `else` statement.
+
+    The complication here is that we need to keep track of where exactly the statement with
+    the forwarded call is inside the conditional. If it is in the test expression of an `if` statement,
+    the replaced caller name must be above the `if test:` line. If the replaced call is somewhere
+    inside the body, it should be in the body as well. Similarly, `orelse` attributes are nested in
+    the AST inside `ast.If` objects, but also in `for` and `try`. These `orelse` fields can contain
+    `if` statements as well (e.g. when using `elif`), that again contain a `test` field. In that case,
+    the replaced caller name assignment must *still* be above the first `if` corresponding to the
+    `else`. This requires some bookkeeping that we should test.
+    """
+    result = CallableWithRandomDescriptorAndNestedIf()(kwarg2=2)
     assert(result == {'kwarg2': 2})
 
 
