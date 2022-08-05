@@ -133,48 +133,50 @@ class ForwardNodeTransformer(ast.NodeTransformer):
         # then check if this is a call with **kwargs argument
         for ix, kw in enumerate(node.keywords):
             # kw.arg must be None, otherwise it's not a double-starred keyword, but an object passed as keyword argument
-            if isinstance(kw.value, ast.Name) and kw.value.id == "kwargs" and kw.arg is None:
-                new_node = node
+            if not isinstance(kw.value, ast.Name) or kw.value.id != "kwargs" or kw.arg is not None:
+                continue
 
-                # first get keywords and check whether the called function is global or not
-                called_name, non_global = self._add_funcs_kwparams_to_expected_kwargs(new_node)
+            new_node = node
 
-                # store the name for later use in visit_stmt and determine the wrapper_name
-                if self.in_stmt:
-                    parent_stmt = self.in_stmt[-1]
-                    self.wrapped_call_in_stmt[parent_stmt]["wrapped_called_name"] = called_name
-                    wrapper_name = f"__kwandl_wrapped_call_{len(self.wrapped_call_in_stmt)}"
-                    self.wrapped_call_in_stmt[parent_stmt]["wrapper_name"] = wrapper_name
+            # first get keywords and check whether the called function is global or not
+            called_name, non_global = self._add_funcs_kwparams_to_expected_kwargs(new_node)
 
-                    new_node.func = ast.Name(id=wrapper_name, ctx=ast.Load())
-                    function_call_name = wrapper_name
-                    # in this case, we must also replace the name in self.local_function_names:
-                    if non_global:
-                        self.local_function_names.remove(called_name)
-                        self.local_function_names.append(function_call_name)
-                else:
-                    function_call_name = called_name
+            # store the name for later use in visit_stmt and determine the wrapper_name
+            if self.in_stmt:
+                parent_stmt = self.in_stmt[-1]
+                self.wrapped_call_in_stmt[parent_stmt]["wrapped_called_name"] = called_name
+                wrapper_name = f"__kwandl_wrapped_call_{len(self.wrapped_call_in_stmt)}"
+                self.wrapped_call_in_stmt[parent_stmt]["wrapper_name"] = wrapper_name
 
-                # then do the appropriate transformation on this node:
+                new_node.func = ast.Name(id=wrapper_name, ctx=ast.Load())
+                function_call_name = wrapper_name
+                # in this case, we must also replace the name in self.local_function_names:
                 if non_global:
-                    wrapper_function = ast.parse('kwandl._get_kwargs_applicable_to_function_and_check_expected_keywords').body[0].value
-                    wrapped_kwargs = ast.Call(func=wrapper_function,
-                                              args=[new_node.func, ast.Constant(value=function_call_name), kw.value,
-                                                    ast.Name(id="expected_keywords", ctx=ast.Load()),
-                                                    ast.Name(id="local_function_names", ctx=ast.Load()),
-                                                    ast.Constant(value=self.typeerror_message)],
-                                              keywords=[])
-                else:
-                    wrapper_function = ast.Attribute(value=ast.Name(id='kwandl', ctx=ast.Load()), attr='get_kwargs_applicable_to_function', ctx=ast.Load())
-                    wrapped_kwargs = ast.Call(func=wrapper_function, args=[new_node.func, kw.value], keywords=[])
-                new_node.keywords.remove(kw)
-                new_node.keywords.insert(ix, ast.keyword(value=wrapped_kwargs))
+                    self.local_function_names.remove(called_name)
+                    self.local_function_names.append(function_call_name)
+            else:
+                function_call_name = called_name
 
-                # AST logistics
-                ast.copy_location(new_node, node)
-                ast.fix_missing_locations(new_node)
-                self.forwardized_function_names.append(called_name)
-                return new_node
+            # then do the appropriate transformation on this node:
+            if non_global:
+                wrapper_function = ast.parse('kwandl._get_kwargs_applicable_to_function_and_check_expected_keywords').body[0].value
+                wrapped_kwargs = ast.Call(func=wrapper_function,
+                                            args=[new_node.func, ast.Constant(value=function_call_name), kw.value,
+                                                ast.Name(id="expected_keywords", ctx=ast.Load()),
+                                                ast.Name(id="local_function_names", ctx=ast.Load()),
+                                                ast.Constant(value=self.typeerror_message)],
+                                            keywords=[])
+            else:
+                wrapper_function = ast.Attribute(value=ast.Name(id='kwandl', ctx=ast.Load()), attr='get_kwargs_applicable_to_function', ctx=ast.Load())
+                wrapped_kwargs = ast.Call(func=wrapper_function, args=[new_node.func, kw.value], keywords=[])
+            new_node.keywords.remove(kw)
+            new_node.keywords.insert(ix, ast.keyword(value=wrapped_kwargs))
+
+            # AST logistics
+            ast.copy_location(new_node, node)
+            ast.fix_missing_locations(new_node)
+            self.forwardized_function_names.append(called_name)
+            return new_node
         # if no kwargs argument was found, just return the node unchanged:
         return node
 
