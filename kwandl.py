@@ -390,19 +390,22 @@ def parse_snippet(source, filename, mode, flags, firstlineno):
     return a
 
 
-def _get_transitive_kwargs(my_name, downstream_dependency_functions):
+def _get_transitive_kwargs(me, downstream_dependency_functions):
     """
     Internal function to dynamically get the transitive kwargs of a function
     by walking through the list of downstream dependencies. This includes the
     kwargs of the function itself.
+
+    Pass in `me` manually at closure time as a poor-man's `self`/class
+    substitute.
     """
-    me = _forwarded_global[my_name]
     transitive_kwargs = inspect.getfullargspec(me).args
     for fcn_name in downstream_dependency_functions:
-        if fcn_name in _forwarded_global:
-            transitive_kwargs.extend(_forwarded_global[fcn_name].kwandl_get_transitive_kwargs())
+        fcn = eval(fcn_name, me.__globals__)  # noqa: eval-used
+        if hasattr(fcn, 'kwandl_forwarded_global_key') and fcn.kwandl_forwarded_global_key in _forwarded_global:
+            transitive_kwargs.extend(_forwarded_global[fcn.kwandl_forwarded_global_key].kwandl_get_transitive_kwargs())
         else:
-            transitive_kwargs.extend(inspect.getfullargspec(eval(fcn_name, me.__globals__)).args)  # noqa: eval-used
+            transitive_kwargs.extend(inspect.getfullargspec(fcn).args)
     return transitive_kwargs
 
 
@@ -427,9 +430,12 @@ def forward(func):
 
     # add result to the table for later reference in transitive forwarding cases:
     _forwarded_global[wrapper.__name__] = wrapper
+    # also store the original name in the object itself so that we can also use the table
+    # with possible copies of the original object
+    wrapper.kwandl_forwarded_global_key = wrapper.__name__
 
     # add a function with which to retrieve transitive keyword arguments
-    wrapper.kwandl_get_transitive_kwargs = lambda: _get_transitive_kwargs(wrapper.__name__, transformer.forwardized_function_names)
+    wrapper.kwandl_get_transitive_kwargs = lambda: _get_transitive_kwargs(wrapper, transformer.forwardized_function_names)
 
     return wrapper
 
@@ -455,8 +461,11 @@ def forward_transitive(func):
 
     # add result to the table for later reference in transitive forwarding cases:
     _forwarded_global[wrapper.__name__] = wrapper
+    # also store the original name in the object itself so that we can also use the table
+    # with possible copies of the original object
+    wrapper.kwandl_forwarded_global_key = wrapper.__name__
 
     # add a function with which to retrieve transitive keyword arguments
-    wrapper.kwandl_get_transitive_kwargs = lambda: _get_transitive_kwargs(wrapper.__name__, transformer.forwardized_function_names)
+    wrapper.kwandl_get_transitive_kwargs = lambda: _get_transitive_kwargs(wrapper, transformer.forwardized_function_names)
 
     return wrapper
