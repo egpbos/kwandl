@@ -33,6 +33,22 @@ def test_forward_throw_type_error_on_unexpected_kwarg():
         function_1_and_2_kwandled(nonexistent_kwarg=1)
 
 
+def test_forwarded_global_dict():
+    """kwandl.forward registers decorated functions internally; this test makes sure"""
+    # Note that the key is actually different here than the actual local name of
+    # the function. This is an exceptional situation, caused by the fact that this
+    # function is not actually decorated (and hence given the same name as the original
+    # decorated function), but stored in a new variable:
+    assert(kwandl._forwarded_global["function_1_and_2"] is function_1_and_2_kwandled)
+    number_forwarded_now = len(kwandl._forwarded_global)
+    @kwandl.forward
+    def lets_try_another_one_here_just_for_kicks(**kwargs):
+        return function_1_and_2_kwandled(**kwargs)
+    # In this case, function keyname actually is the same as the local variable name:
+    assert(kwandl._forwarded_global["lets_try_another_one_here_just_for_kicks"] is lets_try_another_one_here_just_for_kicks)
+    assert(len(kwandl._forwarded_global) == number_forwarded_now + 1)
+
+
 def function_with_dict_parameter(just_a_dict=None):
     return just_a_dict
 
@@ -302,6 +318,72 @@ def test_forward_random_descriptor_nested_orelse():
     assert(result == {'kwarg2': 2})
 
 
+@kwandl.forward_transitive
+def function_1_and_2_transitive(**kwargs):
+    return function_1_and_2_kwandled(**kwargs)
+
+
+def test_forward_transitivity():
+    """
+    Transitivity test that tries to run on a function that calls another
+    kwandl.forwarded function in turn. Expected keywords of both functions should
+    be combined in the top-level call.
+    """
+    result = function_1_and_2_transitive(kwarg1=1, kwarg2=2)
+    assert(result[0] == {'kwarg1': 1})
+    assert(result[1] == {'kwarg2': 2})
+
+@kwandl.forward
+def function_1_and_2_transitive_level1(**kwargs):
+    function1_result = function1(**kwargs)
+    function2_result = function2(**kwargs)
+    return function1_result, function2_result
+
+
+@kwandl.forward_transitive
+def function_1_and_2_transitive_level2(**kwargs):
+    return function_1_and_2_transitive_level1(**kwargs)
+
+
+@kwandl.forward_transitive
+def function_1_and_2_transitive_level3(**kwargs):
+    return function_1_and_2_transitive_level2(**kwargs)
+
+
+@kwandl.forward_transitive
+def function_1_and_2_transitive_level4(**kwargs):
+    return function_1_and_2_transitive_level3(**kwargs)
+
+
+def test_forward_transitivity_deep():
+    """
+    Like test_forward_transitivity, but tests multiple levels of transitivity.
+    """
+    result = function_1_and_2_transitive_level4(kwarg1=1, kwarg2=2)
+    assert(result[0] == {'kwarg1': 1})
+    assert(result[1] == {'kwarg2': 2})
+
+
+@kwandl.forward_transitive
+def function_1_and_2_transitive_level2_no_decorator(**kwargs):
+    return function_1_and_2_transitive(**kwargs)
+
+
+def test_forward_transitivity_deep_no_decorator():
+    """
+    Like test_forward_transitivity_deep, but now for the case when the first
+    decorated function is not actually decorated with a decorator, but rather
+    built with a function call to the decorator:
+
+    decorated_function = kwandl.forward(function)
+
+    This failed in the initial implementation, so that's why we test it.
+    """
+    result = function_1_and_2_transitive_level2_no_decorator(kwarg1=1, kwarg2=2)
+    assert(result[0] == {'kwarg1': 1})
+    assert(result[1] == {'kwarg2': 2})
+
+
 # TODO:
+# - Fix test_forward_staticmethod (relevant for dianna)
 # - Add test case that checks if the function has **kwargs at all
-# - Add transitivity test that tries to run on function that calls another kwandl.forwarded function in turn. Expected keywords of both functions should be combined in the top-level call.

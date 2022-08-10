@@ -13,10 +13,23 @@ if sys.version_info < (3, 9):
     ast.unparse = unparse
 
 
+# dict to store functions that were decorated with forward for later reference
+# in transitive forwards
+_forwarded_global = {}
+
+
 def get_kwargs_applicable_to_function(function, kwargs):
-    """Returns a subset of `kwargs` of only arguments and keyword arguments of `function`."""
+    """
+    Returns a subset of `kwargs` of only arguments and keyword arguments of `function`.
+    
+    This can also include transitive keyword arguments: if a kwandl.forwarded function
+    is called inside `function`, that inner function's keyword arguments are also added
+    here.
+    """
+    transitive_kwargs = function.kwandl_get_transitive_kwargs() \
+                        if hasattr(function, 'kwandl_get_transitive_kwargs') else []
     return {key: value for key, value in kwargs.items()
-            if key in inspect.getfullargspec(function).args}
+            if key in inspect.getfullargspec(function).args + transitive_kwargs}
 
 
 def _get_kwargs_applicable_to_function_and_check_expected_keywords(function, function_call_name, kwargs, expected_keywords,  # noqa: too-many-arguments
@@ -62,16 +75,19 @@ class ForwardNodeTransformer(ast.NodeTransformer):
 
     The NodeTransformer parts are inspired by https://www.georgeho.org/manipulating-python-asts/
     """
-    def __init__(self, func, calling_decorator_name: str):
+    def __init__(self, func, calling_decorator_name: str, transitive: bool = False):
         """
         ForwardNodeTransformer initializer.
 
         Input:
             func: the function object we're decorating.
             calling_decorator_name: the name of the decorator that calls this as a string argument.
+            transitive: boolean to indicate whether or not to use transitive forwarding; note that
+                        this makes each keyword argument search dynamic (and hence slightly slower)!
         """
         self.calling_decorator_name = calling_decorator_name
         self.func = func
+        self.transitive = transitive
         self.expected_kwargs = []
         # by default, we try to gather the expected kwargs in the AST, so the decorated function doesn't
         # need to get the expected_kwargs itself dynamically; the following flag is switched if this
@@ -110,9 +126,9 @@ class ForwardNodeTransformer(ast.NodeTransformer):
             else:
                 non_global = True
 
-        if non_global:
+        if non_global or self.transitive:
             # The call is on a non-global object, so we cannot get the keywords here.
-            # We get them later then.
+            # We get them later then. Also necessary in transitive mode.
             self.local_function_names.append(called_name)
         else:
             # note: normal arguments (without default value) can also be used as keyword arguments
@@ -151,14 +167,14 @@ class ForwardNodeTransformer(ast.NodeTransformer):
                 new_node.func = ast.Name(id=wrapper_name, ctx=ast.Load())
                 function_call_name = wrapper_name
                 # in this case, we must also replace the name in self.local_function_names:
-                if non_global:
+                if non_global or self.transitive:
                     self.local_function_names.remove(called_name)
                     self.local_function_names.append(function_call_name)
             else:
                 function_call_name = called_name
 
             # then do the appropriate transformation on this node:
-            if non_global:
+            if non_global or self.transitive:
                 wrapper_function = ast.parse('kwandl._get_kwargs_applicable_to_function_and_check_expected_keywords').body[0].value
                 wrapped_kwargs = ast.Call(func=wrapper_function,
                                             args=[new_node.func, ast.Constant(value=function_call_name), kw.value,
@@ -240,6 +256,11 @@ class ForwardNodeTransformer(ast.NodeTransformer):
             # expected keywords dynamically; the check is done in get_kwargs_applicable_to_function_and_check_expected_keywords,
             # but it needs expected_keywords from the non-dynamically defined calls and also
             # a list of local functions to keep track of when everything is collected
+            #
+            # In addition, we need to also defer the check if any functions with **kwargs are
+            # present, because they may be kwandl.forward decorated, possibly after this function
+            # has been decorated. In that case, we need to dynamically gather the transitive
+            # expected_keywords from them.
             expected_keywords_assign_ast = ast.Assign(targets=[ast.Name(id='expected_keywords', ctx=ast.Store())],
                                                       value=expected_kwargs_ast)
             local_function_names_assign_ast = ast.Assign(targets=[ast.Name(id='local_function_names', ctx=ast.Store())],
@@ -369,13 +390,30 @@ def parse_snippet(source, filename, mode, flags, firstlineno):
     return a
 
 
+def _get_transitive_kwargs(my_name, downstream_dependency_functions):
+    """
+    Internal function to dynamically get the transitive kwargs of a function
+    by walking through the list of downstream dependencies. This includes the
+    kwargs of the function itself.
+    """
+    me = _forwarded_global[my_name]
+    transitive_kwargs = inspect.getfullargspec(me).args
+    for fcn_name in downstream_dependency_functions:
+        if fcn_name in _forwarded_global:
+            transitive_kwargs.extend(_forwarded_global[fcn_name].kwandl_get_transitive_kwargs())
+        else:
+            transitive_kwargs.extend(inspect.getfullargspec(eval(fcn_name, me.__globals__)).args)  # noqa: eval-used
+    return transitive_kwargs
+
+
 def forward(func):
     # Parse AST and modify it.
     uncompiled = uncompile(func.__code__)
 
     # Parse AST and modify it
     tree = parse_snippet(*uncompiled)
-    tree = ForwardNodeTransformer(func, 'forward').visit(tree)
+    transformer = ForwardNodeTransformer(func, 'forward')
+    tree = transformer.visit(tree)
     uncompiled[0] = tree
 
     # Recompile wrapped function
@@ -386,5 +424,39 @@ def forward(func):
     exec(recompiled, func.__globals__, exec_output)
     wrapper = exec_output['_func_with_kwargs_forwarded']
     functools.update_wrapper(wrapper, func)
+
+    # add result to the table for later reference in transitive forwarding cases:
+    _forwarded_global[wrapper.__name__] = wrapper
+
+    # add a function with which to retrieve transitive keyword arguments
+    wrapper.kwandl_get_transitive_kwargs = lambda: _get_transitive_kwargs(wrapper.__name__, transformer.forwardized_function_names)
+
+    return wrapper
+
+
+def forward_transitive(func):
+    # Parse AST and modify it.
+    uncompiled = uncompile(func.__code__)
+
+    # Parse AST and modify it
+    tree = parse_snippet(*uncompiled)
+    transformer = ForwardNodeTransformer(func, 'forward_transitive', transitive=True)
+    tree = transformer.visit(tree)
+    uncompiled[0] = tree
+
+    # Recompile wrapped function
+    recompiled = recompile(*uncompiled)
+
+    exec_output = {}
+    # Note: using func.__globals__ is critical, otherwise names of functions used in func cannot be found
+    exec(recompiled, func.__globals__, exec_output)
+    wrapper = exec_output['_func_with_kwargs_forwarded']
+    functools.update_wrapper(wrapper, func)
+
+    # add result to the table for later reference in transitive forwarding cases:
+    _forwarded_global[wrapper.__name__] = wrapper
+
+    # add a function with which to retrieve transitive keyword arguments
+    wrapper.kwandl_get_transitive_kwargs = lambda: _get_transitive_kwargs(wrapper.__name__, transformer.forwardized_function_names)
 
     return wrapper
